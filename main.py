@@ -1,14 +1,29 @@
+
 # main.py
-# This is the entry point of our FastAPI application.
-# It defines all API endpoints and connects to the database and file operations.
+# Entry point of our FastAPI application.
 
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    UploadFile,
+    File,
+)
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr, Field
 
 import employee_queries
 import file_operations
+
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+
 
 app = FastAPI(
     title="Employee Management API",
@@ -72,9 +87,22 @@ class CopyFileRequest(BaseModel):
     new_name: str = Field(..., min_length=1, max_length=255)
 
 
+class CSVWriteRequest(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+    data: list[dict]
+    directory: str = Field(default="reports", pattern="^(uploads|reports)$")
+
+
+class JSONWriteRequest(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+    data: Any
+    directory: str = Field(default="reports", pattern="^(uploads|reports)$")
+
+
 # ============================================================
 # GENERAL API ENDPOINTS
 # ============================================================
+
 
 @app.get("/")
 def read_root():
@@ -97,6 +125,7 @@ def read_root():
             "check_file_exists": "GET /files/exists/{filename}",
             "rename_file": "PUT /files/rename/{filename}",
             "copy_file": "POST /files/copy/{filename}",
+            "delete_file": "DELETE /files/{filename}",
         },
     }
 
@@ -309,6 +338,183 @@ def copy_file_api(
             raise HTTPException(status_code=409, detail=error)
         raise HTTPException(status_code=400, detail=error)
     return result
+
+
+
+@app.delete("/files/{filename}", tags=["File Operations"])
+def delete_text_file_api(
+    filename: str,
+    directory: str = Query(default="uploads", pattern="^(uploads|reports)$"),
+):
+    """Delete an existing file."""
+    result = file_operations.delete_file(
+        filename=filename,
+        directory=directory,
+    )
+
+    if not result["success"]:
+        error = result.get("error", "Unable to delete file")
+        if "not found" in error.lower():
+            raise HTTPException(status_code=404, detail=error)
+        raise HTTPException(status_code=400, detail=error)
+
+    return result
+
+
+# ============================================================
+# CSV AND JSON ENDPOINTS
+# ============================================================
+
+@app.post("/files/csv", status_code=201, tags=["File Operations"])
+def write_csv_api(request: CSVWriteRequest):
+    """Create a CSV file from a list of dictionaries."""
+    result = file_operations.write_csv_file(
+        filename=request.filename,
+        data=request.data,
+        directory=request.directory,
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("error", "Unable to write CSV file"),
+        )
+    return result
+
+
+@app.get("/files/csv/{filename}", tags=["File Operations"])
+def read_csv_api(
+    filename: str,
+    directory: str = Query(default="uploads", pattern="^(uploads|reports)$"),
+):
+    """Read CSV rows as JSON objects."""
+    result = file_operations.read_csv_file(filename, directory)
+    if not result.get("success"):
+        error = result.get("error", "Unable to read CSV file")
+        if "not found" in error.lower():
+            raise HTTPException(status_code=404, detail=error)
+        raise HTTPException(status_code=400, detail=error)
+    return result
+
+
+@app.post("/files/json", status_code=201, tags=["File Operations"])
+def write_json_api(request: JSONWriteRequest):
+    """Create a JSON file from the supplied data."""
+    result = file_operations.write_json_file(
+        filename=request.filename,
+        data=request.data,
+        directory=request.directory,
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("error", "Unable to write JSON file"),
+        )
+    return result
+
+
+@app.get("/files/json/{filename}", tags=["File Operations"])
+def read_json_api(
+    filename: str,
+    directory: str = Query(default="uploads", pattern="^(uploads|reports)$"),
+):
+    """Read and parse a JSON file."""
+    result = file_operations.read_json_file(filename, directory)
+    if not result.get("success"):
+        error = result.get("error", "Unable to read JSON file")
+        if "not found" in error.lower():
+            raise HTTPException(status_code=404, detail=error)
+        raise HTTPException(status_code=400, detail=error)
+    return result
+
+
+
+# ============================================================
+# FILE UPLOAD AND DOWNLOAD ENDPOINTS
+# ============================================================
+
+@app.post("/files/upload", tags=["File Operations"])
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file into the uploads directory."""
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+
+    filename = file.filename
+
+    # Reject paths and unsafe filenames.
+    if (
+        Path(filename).name != filename
+        or filename in {".", ".."}
+        or "/" in filename
+        or "\\" in filename
+    ):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    destination = UPLOAD_DIR / filename
+
+    # Do not overwrite existing files.
+    if destination.exists():
+        raise HTTPException(status_code=409, detail="File already exists")
+
+    size = 0
+
+    try:
+        with destination.open("xb") as output:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+
+                size += len(chunk)
+
+                if size > MAX_FILE_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="File exceeds the 5 MB limit",
+                    )
+
+                output.write(chunk)
+
+    except HTTPException:
+        destination.unlink(missing_ok=True)
+        raise
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Upload failed")
+    finally:
+        await file.close()
+
+    return {
+        "success": True,
+        "filename": filename,
+        "size_bytes": size,
+        "message": "File uploaded successfully",
+    }
+
+
+@app.get("/files/download/{filename}", tags=["File Operations"])
+def download_file(filename: str):
+    """Download an existing file from the uploads directory."""
+
+    if (
+        not filename
+        or Path(filename).name != filename
+        or "/" in filename
+        or "\\" in filename
+    ):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_path = UPLOAD_DIR / filename
+
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 # Run with: python -m uvicorn main:app --reload

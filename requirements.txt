@@ -1,16 +1,19 @@
-# Web Framework
-fastapi==0.104.1          # Modern, fast web framework for building APIs
-uvicorn==0.24.0           # ASGI server to run FastAPI application
-
-# Database
-mysql-connector-python==8.2.0  # MySQL database driver for Python
-
-# Environment Variables
-python-dotenv==1.0.0      # Load environment variables from .env file
-
-# File Upload Support
-python-multipart==0.0.6   # Required for FastAPI file uploads
-
-# Data Validation (comes with FastAPI but listed for clarity)
-pydantic==2.5.0           # Data validation using Python type hints
-pydantic[email]==2.5.0    # Email validation support
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+dnspython==2.9.0
+email-validator==2.3.0
+fastapi==0.143.0
+h11==0.16.0
+idna==3.20
+mysql-connector-python==26.7.0
+opentelemetry-api==1.45.1
+pydantic==2.14.1
+pydantic_core==2.50.1
+python-dotenv==1.2.4
+python-multipart==0.0.32
+starlette==1.7.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvicorn==0.54.0
