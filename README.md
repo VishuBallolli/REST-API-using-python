@@ -1,17 +1,17 @@
 # Employee Management REST API
 
-A Python-based REST API built with **FastAPI and MySQL** for managing employee records and performing file operations.
+A Python-based REST API built with **FastAPI and MySQL/MariaDB** for managing employee records and performing file operations.
 
 ## Project Status
 
-🚧 **Development in Progress**
+**Core implementation completed; final verification and security review in progress.**
 
-- Employee CRUD and search APIs: Implemented and tested
-- Text file operations: Implemented and tested
-- File rename and copy: Implemented and tested
-- CSV and JSON operations: Remaining
-- File upload and download: Remaining
-- Final security review and testing: Remaining
+- Employee CRUD and search APIs: Implemented
+- Text file operations: Implemented
+- File rename, copy, and delete: Implemented
+- CSV and JSON read/write APIs: Implemented and tested
+- File upload and download: Implemented and tested
+- GitHub version control: Changes committed and pushed
 
 ## Technologies Used
 
@@ -22,7 +22,9 @@ A Python-based REST API built with **FastAPI and MySQL** for managing employee r
 - `mysql-connector-python`
 - `python-dotenv`
 - Pydantic
-- Postman and Swagger UI
+- `python-multipart`
+- Swagger UI
+- Postman
 
 ## Project Structure
 
@@ -47,10 +49,10 @@ REST-API-using-python/
 ## Prerequisites
 
 - Python 3.10 or later
-- MySQL or MariaDB running locally
+- MySQL or MariaDB
 - Git
 - VS Code (recommended)
-- Postman (for API testing)
+- Postman (optional)
 
 ## Setup Instructions
 
@@ -63,7 +65,7 @@ cd REST-API-using-python
 
 ### 2. Create and activate a virtual environment
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 python -m venv venv
@@ -78,9 +80,9 @@ python -m pip install -r requirements.txt
 
 ### 4. Configure environment variables
 
-Copy `.env.example` to `.env` and update the database settings.
+Copy `.env.example` to `.env` and configure your local database settings.
 
-Example configuration:
+Example:
 
 ```env
 DB_HOST=localhost
@@ -97,19 +99,15 @@ UPLOAD_FOLDER=uploads
 REPORTS_FOLDER=reports
 ```
 
-**Security:** Never commit your real `.env` file or database credentials to GitHub.
+Use the variable names expected by your actual application configuration. Never commit real database credentials or your `.env` file to GitHub.
 
 ### 5. Initialize the database
 
-Start your MySQL/MariaDB service. If using XAMPP, start MySQL from the XAMPP Control Panel.
+Start MySQL/MariaDB. If you use XAMPP, start MySQL from the XAMPP Control Panel.
 
-Follow the instructions in `setup_database.sql` or use the project's database initialization script:
+Follow `setup_database.sql` to create the required database and tables. Run `python database.py` only if that file supports database initialization in your current implementation.
 
-```bash
-python database.py
-```
-
-Ensure the database connection settings in `.env` are correct before running the script.
+Ensure your `.env` settings match your database configuration.
 
 ### 6. Start the API server
 
@@ -120,39 +118,79 @@ python -m uvicorn main:app --reload
 ### 7. Open the API documentation
 
 - Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
 - Health check: http://127.0.0.1:8000/health
 
-## Implemented Features
+## API Features
 
 ### Employee Management
 
-- Create employee records
-- Retrieve employee records
-- Update employee records
-- Delete employee records
-- Search employees
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/employees` | Create an employee |
+| GET | `/employees` | Retrieve all employees |
+| GET | `/employees/{employee_id}` | Retrieve one employee |
+| PUT | `/employees/{employee_id}` | Update an employee |
+| DELETE | `/employees/{employee_id}` | Delete an employee |
+| GET | `/employees/search/?term=Rahul&field=name` | Search by name or department |
 
-### File Operations
+### Text File Operations
 
-- Create text files
-- Read text file contents
-- Append text to files
-- Check file existence
-- Rename files
-- Copy files
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/files/text` | Create a text file |
+| GET | `/files/text/{filename}` | Read a text file |
+| POST | `/files/text/{filename}/append` | Append content |
+| GET | `/files/exists/{filename}` | Check whether a file exists |
+| PUT | `/files/rename/{filename}` | Rename a file |
+| POST | `/files/copy/{filename}` | Copy a file |
+| DELETE | `/files/{filename}` | Delete a file |
 
-These operations have been tested using Swagger UI during development.
+For text-file operations that accept a `directory` query parameter, the supported directories are `uploads` and `reports`.
 
-## Remaining Work
+### CSV and JSON Operations
 
-- [ ] Complete remaining file APIs, including deletion
-- [ ] Test CSV import/export operations
-- [ ] Test JSON import/export operations
-- [ ] Implement and test file uploads and downloads
-- [ ] Review validation and error handling
-- [ ] Review file-path security and upload restrictions
-- [ ] Test endpoints and edge cases using Postman
-- [ ] Complete final documentation and verification
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/files/csv` | Write CSV data |
+| GET | `/files/csv/{filename}` | Read CSV data |
+| POST | `/files/json` | Write JSON data |
+| GET | `/files/json/{filename}` | Read JSON data |
+
+The write endpoints accept a filename, data, and a destination directory. Read endpoints accept a filename and optional directory.
+
+### File Upload and Download
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/files/upload` | Upload a file |
+| GET | `/files/download/{filename}` | Download an uploaded file |
+
+The upload endpoint accepts multipart form data and enforces a 5 MB limit in the current implementation. Existing filenames are not overwritten.
+
+## Testing
+
+Use Swagger UI at `/docs` to explore and test endpoints.
+
+Verified during development:
+
+- CSV creation and reading
+- JSON creation and reading
+- File upload and download
+- Duplicate upload rejection
+- Missing-file handling
+- Employee and text-file operations tested during development
+
+Run additional regression tests before deployment, including database failures, invalid inputs, and file-path security cases.
+
+## Security Considerations
+
+- Keep `.env` and real credentials out of version control.
+- Validate request data and file paths.
+- Enforce file size limits.
+- Test unauthorized or invalid requests and error handling.
+- Use appropriate authentication and authorization before exposing the API publicly.
+- Review file overwrite behavior and database error handling before production deployment.
 
 ## Learning Resources
 
