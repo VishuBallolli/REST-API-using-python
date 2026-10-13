@@ -1,0 +1,59 @@
+# Python Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python Cache Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment Variables (NEVER commit this!)
+.env
+
+# IDE Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploaded Files (user content)
+uploads/*
+!uploads/.gitkeep
+
+# Generated Reports
+reports/*
+!reports/.gitkeep
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Keep example environment configuration, but ignore real secrets
+.env.*
+!.env.example
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.bak
